@@ -1,0 +1,26 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/sean/Desktop/school/parralel-systems/omp-v-3/main.cpp
+cstdlib
+-
+iostream
+-
+fstream
+-
+chrono
+-
+vector
+-
+cmath
+-
+assert.h
+-
+omp.h
+-
+
