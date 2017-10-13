@@ -140,32 +140,50 @@ int main(int argc, char *argv[]) {
             }
 
             fileInput.read((char *) &buffer[0], size);
-            int j;
-# pragma omp parallel num_threads(numThreads) default(none) private(j, my_rank, thread_count) shared(buffer, min, max, size, unit)
+# pragma omp parallel num_threads(numThreads) default(none) private(i, my_rank, thread_count) shared(buffer, min, max, size, unit)
             {
                 get_rank_thread_count(&my_rank, &thread_count);
                 int local_min = numeric_limits<int>::max();
                 int local_max = numeric_limits<int>::min();
 // Find max and min
-# pragma omp for  schedule(static, ( size / unit ) / thread_count )
-                for (j = 0; j < size / unit; ++j) {
-                    if (local_min > buffer[j])
-                        local_min = buffer[j];
-                    if (local_max < buffer[j])
-                        local_max = buffer[j];
+# pragma omp for schedule(static, ( size / unit ) / thread_count )
+                for (int i = 0; i < size / unit; ++i) {
+                    if (local_min > buffer[i])
+                        local_min = buffer[i];
+                    if (local_max < buffer[i])
+                        local_max = buffer[i];
                 }
-                // One Critical section is faster then two named
 # pragma omp critical
                 {
                     if (min > local_min)
                         min = local_min;
-
                     if (max < local_max)
                         max = local_max;
                 }
             }
 
         }
+
+
+//    //  Start OMP
+//    #pragma omp parallel num_threads(numThreads) default(none) private(i) shared(buffer, size, unit, min, max) reduction(max: max) reduction(min: min){
+//
+//
+//        //////// First Pass:  Min Max   //////////////
+//        for(int i = 0; i < fileLength; i += bufferSize){
+//            //  Check if buffer is less then remainder of file
+//            if(fileLength - i < bufferSize ) {
+//               size = fileLength - i;
+//            }
+//
+//            fileInput.read((char *) &buffer[0], size);
+//
+//            }
+//
+//
+//
+//        }
+
 
 
         // Reset
@@ -189,33 +207,11 @@ int main(int argc, char *argv[]) {
 
             fileInput.read((char *) &buffer[0], size);
 
-/* Original Reduction */
-            int j;
-# pragma omp parallel num_threads(numThreads) default(none) private(my_rank, thread_count, j)  shared(data, buffer, size, unit, intervalSize, min, bucketSize)
-            {
-                // Process Data
-                vector<int> local_data(intervalSize, 0);
-                get_rank_thread_count(&my_rank, &thread_count);
-
-# pragma omp for schedule(static, ( size / unit ) / thread_count )
-                for (j = 0; j < size / unit; j++) {
-                    local_data[(buffer[j] - min) / bucketSize]++;
-                }
-
-                for (j = 0; j < intervalSize; j++) {
-# pragma omp atomic
-                        data[j] += local_data[j];
-
-
-
-                }
-
-            }
             /**
- * Second attempt at non blocking critical section
- * Algorithm from: https://stackoverflow.com/questions/20413995/reducing-on-array-in-openmp
- * Algorithm seems slower then using a critical section and is more dangourous and harder to read
- */
+             * Second attempt at non blocking critical section
+             * Algorithm from: https://stackoverflow.com/questions/20413995/reducing-on-array-in-openmp
+             * Algorithm seems slower then using a critical section and is more dangourous and harder to read
+             */
 
 /*
             int* local_data;
@@ -248,6 +244,27 @@ int main(int argc, char *argv[]) {
             delete[] local_data;
         }
         */
+
+
+/* Original Reduction */
+# pragma omp parallel num_threads(numThreads) default(none) private(my_rank, thread_count)  shared(data, buffer, size, unit, intervalSize, min, bucketSize)
+            {
+                // Process Data
+                vector<int> local_data(intervalSize, 0);
+                get_rank_thread_count(&my_rank, &thread_count);
+
+# pragma omp  for schedule(static, ( size / unit ) / thread_count )
+                for (int i = 0; i < size / unit; i++) {
+                    local_data[(buffer[i] - min) / bucketSize]++;
+                }
+# pragma omp critical
+                {
+                    for (int i = 0; i < intervalSize; i++) {
+                        data[i] += local_data[i];
+                    }
+                }
+
+            }
         }
 
         fileInput.close();
